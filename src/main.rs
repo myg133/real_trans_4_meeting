@@ -13,6 +13,24 @@ use audio_io::AudioStream;
 use processor::ProcessorChain;
 use cpal::traits::{DeviceTrait, HostTrait};
 
+// 获取系统默认输入设备
+fn get_default_input_device() -> Option<String> {
+    let host = cpal::default_host();
+    match host.default_input_device() {
+        Some(device) => device.name().ok(),
+        None => None,
+    }
+}
+
+// 获取系统默认输出设备
+fn get_default_output_device() -> Option<String> {
+    let host = cpal::default_host();
+    match host.default_output_device() {
+        Some(device) => device.name().ok(),
+        None => None,
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "trans")]
 #[command(about = "全双工音频处理程序 - 为视频会议/直播软件提供音频处理功能", long_about = None)]
@@ -58,32 +76,152 @@ fn interactive_config() -> Result<()> {
 
     let (input_devices, output_devices) = list_devices()?;
 
+    // 检测虚拟设备
+    let vbcable_inputs: Vec<&String> = output_devices.iter()
+        .filter(|s| s.contains("CABLE") && s.contains("Input"))
+        .collect();
+    
+    let vbcable_outputs: Vec<&String> = input_devices.iter()
+        .filter(|s| s.contains("CABLE") && s.contains("Output"))
+        .collect();
+
+    println!("📻 检测到的虚拟音频设备:");
+    println!("════════════════════════════════════════════════════════════════");
+    println!("虚拟输入设备（虚拟扬声器）: {} 个", vbcable_inputs.len());
+    for device in &vbcable_inputs {
+        println!("  - {}", device);
+    }
+    println!("虚拟输出设备（虚拟麦克风）: {} 个", vbcable_outputs.len());
+    for device in &vbcable_outputs {
+        println!("  - {}", device);
+    }
+    println!();
+
+    // 检查虚拟设备数量
+    if vbcable_inputs.is_empty() || vbcable_outputs.is_empty() {
+        println!("❌ 错误：未检测到足够的虚拟音频设备！");
+        println!();
+        println!("全双工音频处理需要至少 1 个虚拟音频设备。");
+        println!();
+        println!("请安装 VB-Cable:");
+        println!("  下载地址: https://vb-audio.com/Cable/");
+        println!("  建议安装: VB-Cable + VB-Cable A（共 2 个）");
+        println!();
+        println!("安装完成后，重新运行此程序。");
+        std::process::exit(1);
+    }
+
+    if vbcable_inputs.len() == 1 && vbcable_outputs.len() == 1 {
+        println!("✓ 检测到 1 个虚拟音频设备");
+        println!("  这只支持单向音频处理");
+        println!("  如需全双工处理，建议再安装一个 VB-Cable");
+        println!();
+    } else if vbcable_inputs.len() >= 2 && vbcable_outputs.len() >= 2 {
+        println!("✓ 检测到 {} 个虚拟音频设备，支持全双工处理", vbcable_inputs.len());
+        println!();
+    }
+
     // 选择物理麦克风
-    println!("📻 选择物理麦克风（输入设备）:");
+    println!("🎤 选择物理麦克风（输入设备）:");
+    let physical_input_devices: Vec<&String> = input_devices.iter()
+        .filter(|s| !s.contains("CABLE"))
+        .collect();
+    
+    if physical_input_devices.is_empty() {
+        println!("❌ 错误：未检测到物理麦克风设备！");
+        std::process::exit(1);
+    }
+    
+    // 获取系统默认麦克风
+    let default_mic = get_default_input_device();
+    let default_mic_index = if let Some(ref name) = default_mic {
+        physical_input_devices.iter().position(|s| s.contains(name)).unwrap_or(0)
+    } else {
+        0
+    };
+    
+    let mic_items: Vec<&str> = physical_input_devices.iter().map(|s| s.as_str()).collect();
     let mic_index = Select::with_theme(&ColorfulTheme::default())
-        .items(&input_devices.iter().map(|s| s.as_str()).collect::<Vec<_>>())
-        .default(0)
+        .items(&mic_items)
+        .default(default_mic_index)
+        .with_prompt(if default_mic.is_some() {
+            format!("当前系统默认: {}", default_mic.unwrap())
+        } else {
+            "选择麦克风".to_string()
+        })
         .interact()?;
-    let input_device = input_devices[mic_index].clone();
+    let input_device = physical_input_devices[mic_index].clone();
 
     // 选择物理扬声器
     println!("\n🔊 选择物理扬声器（输出设备）:");
+    let physical_output_devices: Vec<&String> = output_devices.iter()
+        .filter(|s| !s.contains("CABLE"))
+        .collect();
+    
+    if physical_output_devices.is_empty() {
+        println!("❌ 错误：未检测到物理扬声器设备！");
+        std::process::exit(1);
+    }
+    
+    // 获取系统默认扬声器
+    let default_speaker = get_default_output_device();
+    let default_speaker_index = if let Some(ref name) = default_speaker {
+        physical_output_devices.iter().position(|s| s.contains(name)).unwrap_or(0)
+    } else {
+        0
+    };
+    
+    let speaker_items: Vec<&str> = physical_output_devices.iter().map(|s| s.as_str()).collect();
     let speaker_index = Select::with_theme(&ColorfulTheme::default())
-        .items(&output_devices.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+        .items(&speaker_items)
+        .default(default_speaker_index)
+        .with_prompt(if default_speaker.is_some() {
+            format!("当前系统默认: {}", default_speaker.unwrap())
+        } else {
+            "选择扬声器".to_string()
+        })
+        .interact()?;
+    let output_device = physical_output_devices[speaker_index].clone();
+
+    // 选择虚拟设备 A（用于输入流）
+    println!("\n📻 选择虚拟设备 A（用于输入流 - 你说话 → 会议软件）:");
+    println!("   这个设备将接收处理后的麦克风声音");
+    let vbcable_a_items: Vec<&str> = vbcable_inputs.iter().map(|s| s.as_str()).collect();
+    let vbcable_a_index = Select::with_theme(&ColorfulTheme::default())
+        .items(&vbcable_a_items)
         .default(0)
         .interact()?;
-    let output_device = output_devices[speaker_index].clone();
-
-    // 自动查找 VB-Cable 设备
-    let vbcable_input = output_devices.iter()
-        .find(|s| s.contains("CABLE-A Input"))
-        .unwrap_or(&"CABLE-A Input".to_string())
-        .clone();
+    let vbcable_input = vbcable_inputs[vbcable_a_index].clone();
     
-    let vbcable_output = input_devices.iter()
-        .find(|s| s.contains("CABLE Output") && !s.contains("CABLE-A"))
-        .unwrap_or(&"CABLE Output".to_string())
-        .clone();
+    // 找到对应的 Output 设备
+    let vbcable_a_output = vbcable_outputs.iter()
+        .find(|s| {
+            let input_name = vbcable_input.replace(" Input", "");
+            let output_name = s.replace(" Output", "");
+            input_name == output_name
+        })
+        .unwrap_or(&vbcable_outputs[0]);
+
+    // 选择虚拟设备 B（用于输出流）- 从可用设备中移除已选择的
+    println!("\n📻 选择虚拟设备 B（用于输出流 - 会议软件 → 你听到）:");
+    println!("   这个设备将接收会议软件的输出声音");
+    
+    let available_vbcable_outputs: Vec<&&String> = vbcable_outputs.iter()
+        .filter(|s| *s != vbcable_a_output)
+        .collect();
+    
+    let vbcable_output = if available_vbcable_outputs.is_empty() {
+        // 如果只有一个虚拟设备，使用同一个
+        println!("   ℹ️  只有一个虚拟设备，将同时用于输入和输出");
+        vbcable_a_output.clone()
+    } else {
+        let items: Vec<&str> = available_vbcable_outputs.iter().map(|s| s.as_str()).collect();
+        let index = Select::with_theme(&ColorfulTheme::default())
+            .items(&items)
+            .default(0)
+            .interact()?;
+        available_vbcable_outputs[index].clone()
+    };
 
     // 保存配置
     let config_str = format!(
@@ -102,7 +240,7 @@ fn interactive_config() -> Result<()> {
 # 适用于：OBS、Zoom、Teams、腾讯会议等任何视频会议/直播软件
 #
 # 会议软件设置：
-#   输入设备（麦克风）: CABLE-A Output (VB-Audio Cable A)
+#   输入设备（麦克风）: CABLE-A Input (VB-Audio Cable A)
 #   输出设备（扬声器）: CABLE Output (VB-Audio Virtual Cable)
 
 # ========================================
@@ -139,7 +277,7 @@ buffer_size = 512    # 缓冲区大小 (帧)
     println!("\n✅ 配置已保存到 {}", "config.toml".green().bold());
     println!("\n📋 {} 会议软件设置:", "⚙️".yellow());
     println!("  {} 输入设备（麦克风）: {}", "🎤".cyan(), 
-        input_devices.iter().find(|s| s.contains("CABLE-A Output")).unwrap_or(&"CABLE-A Output".to_string()).cyan().bold());
+        vbcable_a_output.cyan().bold());
     println!("  {} 输出设备（扬声器）: {}", "🔊".cyan(), vbcable_output.cyan().bold());
     println!("\n现在运行 {} 或 {} 启动程序", "trans.exe run".green(), "trans.exe".green());
 
@@ -273,8 +411,8 @@ fn main() -> Result<()> {
     info!("╔════════════════════════════════════════════════════════════════╗");
     info!("║ 输入流（你说话）                                                ║");
     info!("║   物理麦克风: {} → 处理 → {}", config.input_device_name, config.vbcable_input_name);
-    info!("║   内部管道: {} → {}", config.vbcable_input_name.replace(" Input", " Output"), config.vbcable_input_name.replace(" Input", " Output"));
-    info!("║   {} 会议软件输入设备选择: {}", "⚡".yellow(), config.vbcable_input_name.replace(" Input", " Output").cyan().bold());
+    info!("║   内部管道: {} → {}", config.vbcable_input_name.replace(" Input", " Output"), config.vbcable_input_name);
+    info!("║   {} 会议软件输入设备选择: {}", "⚡".yellow(), config.vbcable_input_name.cyan().bold());
     info!("╠════════════════════════════════════════════════════════════════╣");
     info!("║ 输出流（对方说话）                                              ║");
     info!("║   {} 会议软件输出设备选择: {}", "⚡".yellow(), config.vbcable_output_name.cyan().bold());
