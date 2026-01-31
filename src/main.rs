@@ -27,16 +27,20 @@ fn main() -> Result<()> {
     let config = config::AudioConfig::load_or_default()?;
 
     info!("配置:");
-    info!("=== 输入流（你说话）===");
-    info!("  物理麦克风: {} -> 处理 -> {}", config.input_device_name, config.vbcable_input_name);
-    info!("  视频会议软件的输入设备选择: CABLE-A Output");
-    info!("");
-    info!("=== 输出流（对方说话）===");
-    info!("  视频会议软件的输出设备选择: {}", config.vbcable_output_name);
-    info!("  {} -> 处理 -> 物理扬声器: {}", config.vbcable_output_name, config.output_device_name);
-    info!("");
-    info!("  采样率: {} Hz", config.sample_rate);
-    info!("  缓冲区大小: {} 帧", config.buffer_size);
+    info!("╔════════════════════════════════════════════════════════════════╗");
+    info!("║ 输入流（你说话）                                                ║");
+    info!("║   物理麦克风: {} → 处理 → {}", config.input_device_name, config.vbcable_input_name);
+    info!("║   内部管道: {} → {}", config.vbcable_input_name.replace(" Input", " Output"), config.vbcable_input_name.replace(" Input", " Output"));
+    info!("║   OBS 输入设备选择: {}", config.vbcable_input_name.replace(" Input", " Output"));
+    info!("╠════════════════════════════════════════════════════════════════╣");
+    info!("║ 输出流（对方说话）                                              ║");
+    info!("║   OBS 输出设备选择: {}", config.vbcable_output_name);
+    info!("║   {} → 处理 → 物理扬声器: {}", config.vbcable_output_name, config.output_device_name);
+    info!("╠════════════════════════════════════════════════════════════════╣");
+    info!("║ 音频参数                                                       ║");
+    info!("║   采样率: {} Hz", config.sample_rate);
+    info!("║   缓冲区大小: {} 帧", config.buffer_size);
+    info!("╚════════════════════════════════════════════════════════════════╝");
 
     // 启动输入流: 物理麦克风 -> 处理器 -> CABLE-A Input
     // 音频通过内部管道传到 CABLE-A Output，视频会议软件从 CABLE-A Output 读取
