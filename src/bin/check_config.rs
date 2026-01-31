@@ -1,9 +1,11 @@
 use anyhow::Result;
+use colored::Colorize;
 use cpal::traits::{DeviceTrait, HostTrait};
 
 fn main() -> Result<()> {
     println!("╔════════════════════════════════════════════════════════════════╗");
     println!("║  音频设备配置检查工具                                           ║");
+    println!("║  适用于：OBS、Zoom、Teams、腾讯会议等视频会议/直播软件            ║");
     println!("╚════════════════════════════════════════════════════════════════╝");
     println!();
 
@@ -84,15 +86,15 @@ fn main() -> Result<()> {
         }
     }
 
-    println!("\n📋 配置建议:");
+    println!("\n📋 {} 配置建议:", "⚙️".yellow());
     println!("════════════════════════════════════════════════════════════════");
-    println!("在 config.toml 中:");
-    println!("  vbcable_input_name  = \"CABLE-A Input\"");
-    println!("  vbcable_output_name = \"CABLE Output\"");
+    println!("在 {} 中:", "config.toml".green().bold());
+    println!("  vbcable_input_name  = {}", "\"CABLE-A Input\"".cyan());
+    println!("  vbcable_output_name = {}", "\"CABLE Output\"".cyan());
     println!();
-    println!("在 OBS 中:");
-    println!("  输入设备（麦克风）: CABLE-A Output (VB-Audio Cable A)");
-    println!("  输出设备（扬声器）: CABLE Output (VB-Audio Virtual Cable)");
+    println!("在 {} 中:", "会议软件（OBS、Zoom、Teams 等）".yellow());
+    println!("  {} 输入设备（麦克风）: {}", "🎤".cyan(), "CABLE-A Output (VB-Audio Cable A)".cyan().bold());
+    println!("  {} 输出设备（扬声器）: {}", "🔊".cyan(), "CABLE Output (VB-Audio Virtual Cable)".cyan().bold());
 
     Ok(())
 }

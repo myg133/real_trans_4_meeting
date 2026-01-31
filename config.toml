@@ -3,13 +3,16 @@
 # 工作原理：
 # ┌─────────────────────────────────────────────────────────────────┐
 # │ 输入流（你说话）:                                                │
-# │   物理麦克风 → 程序处理 → CABLE-A Input → CABLE-A Output → OBS   │
+# │   物理麦克风 → 程序处理 → CABLE-A Input → CABLE-A Output → 会   │
+# │   议软件                                                         │
 # │                                                                 │
 # │ 输出流（对方说话）:                                              │
-# │   OBS → CABLE Output → 程序处理 → 物理扬声器 → 你听到            │
+# │   会议软件 → CABLE Output → 程序处理 → 物理扬声器 → 你听到       │
 # └─────────────────────────────────────────────────────────────────┘
 #
-# OBS 设置：
+# 适用于：OBS、Zoom、Teams、腾讯会议等任何视频会议/直播软件
+#
+# 会议软件设置：
 #   输入设备（麦克风）: CABLE-A Output (VB-Audio Cable A)
 #   输出设备（扬声器）: CABLE Output (VB-Audio Virtual Cable)
 
@@ -18,25 +21,25 @@
 # ========================================
 
 # 物理输入设备 - 你的真实麦克风
-# 提示：运行 `cargo run --bin list_devices` 查看所有可用设备
+# 提示：运行 `trans.exe check` 查看所有可用设备
 input_device_name = "麦克风"
 
 # 虚拟设备 A - 程序输出处理后的麦克风声音
 # 设备名必须包含: CABLE-A Input (VB-Audio Cable A)
-# 音频会通过内部管道传到 CABLE-A Output，供 OBS 读取
+# 音频会通过内部管道传到 CABLE-A Output，供会议软件读取
 vbcable_input_name = "CABLE-A Input"
 
 # ========================================
 # 输出流配置（处理对方的声音）
 # ========================================
 
-# 虚拟设备 Output - OBS 输出声音到这里
+# 虚拟设备 Output - 会议软件输出声音到这里
 # 设备名必须包含: CABLE Output (VB-Audio Virtual Cable)
 # 程序会从这里读取并处理后输出到物理扬声器
 vbcable_output_name = "CABLE Output"
 
 # 物理输出设备 - 你最终听到的设备（耳机或扬声器）
-# 提示：运行 `cargo run --bin list_devices` 查看所有可用设备
+# 提示：运行 `trans.exe check` 查看所有可用设备
 output_device_name = "扬声器"
 
 # ========================================
