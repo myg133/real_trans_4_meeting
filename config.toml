@@ -39,5 +39,5 @@ output_device_name = "扬声器 (Realtek High Definition Audio)"
 # ========================================
 # 音频参数
 # ========================================
-sample_rate = 96000  # 采样率 (Hz)
+sample_rate = 16000  # 采样率 (Hz)
 buffer_size = 1024    # 缓冲区大小 (帧)
