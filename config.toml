@@ -1,0 +1,21 @@
+# 音频设备配置 - 全双工模式（使用 CABLE 和 CABLE-A）
+
+# === 输入流配置（你说话 → 视频会议） ===
+# 物理输入设备（麦克风）- 从这里读取真实麦克风声音
+input_device_name = "麦克风"
+
+# 虚拟输入设备 A Input - 程序输出处理后的麦克风声音
+# 音频通过内部管道传到 CABLE-A Output，供视频会议软件读取
+vbcable_input_name = "CABLE-A Input"
+
+# === 输出流配置（视频会议 → 你听到） ===
+# 虚拟输出设备 CABLE Output - 视频会议软件输出声音到这里
+# 程序从 CABLE Output 读取并处理后输出到物理扬声器
+vbcable_output_name = "CABLE Output"
+
+# 物理输出设备（扬声器/耳机）- 最终输出设备
+output_device_name = "扬声器"
+
+# 音频参数
+sample_rate = 48000  # 采样率 (Hz)
+buffer_size = 512    # 缓冲区大小 (帧)
