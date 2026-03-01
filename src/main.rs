@@ -1,6 +1,6 @@
 mod audio_io;
-mod processor;
 mod config;
+mod processor;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -10,8 +10,8 @@ use log::info;
 use std::sync::Arc;
 
 use audio_io::AudioStream;
-use processor::ProcessorChain;
 use cpal::traits::{DeviceTrait, HostTrait};
+use processor::ProcessorChain;
 
 // 获取系统默认输入设备
 fn get_default_input_device() -> Option<String> {
@@ -55,15 +55,17 @@ enum Commands {
 
 fn list_devices() -> Result<(Vec<String>, Vec<String>)> {
     let host = cpal::default_host();
-    
-    let input_devices: Vec<String> = host.input_devices()?
+
+    let input_devices: Vec<String> = host
+        .input_devices()?
         .filter_map(|d| d.name().ok())
         .collect();
-    
-    let output_devices: Vec<String> = host.output_devices()?
+
+    let output_devices: Vec<String> = host
+        .output_devices()?
         .filter_map(|d| d.name().ok())
         .collect();
-    
+
     Ok((input_devices, output_devices))
 }
 
@@ -77,11 +79,13 @@ fn interactive_config() -> Result<()> {
     let (input_devices, output_devices) = list_devices()?;
 
     // 检测虚拟设备
-    let vbcable_inputs: Vec<&String> = output_devices.iter()
+    let vbcable_inputs: Vec<&String> = output_devices
+        .iter()
         .filter(|s| s.contains("CABLE") && s.contains("Input"))
         .collect();
-    
-    let vbcable_outputs: Vec<&String> = input_devices.iter()
+
+    let vbcable_outputs: Vec<&String> = input_devices
+        .iter()
         .filter(|s| s.contains("CABLE") && s.contains("Output"))
         .collect();
 
@@ -117,29 +121,36 @@ fn interactive_config() -> Result<()> {
         println!("  如需全双工处理，建议再安装一个 VB-Cable");
         println!();
     } else if vbcable_inputs.len() >= 2 && vbcable_outputs.len() >= 2 {
-        println!("✓ 检测到 {} 个虚拟音频设备，支持全双工处理", vbcable_inputs.len());
+        println!(
+            "✓ 检测到 {} 个虚拟音频设备，支持全双工处理",
+            vbcable_inputs.len()
+        );
         println!();
     }
 
     // 选择物理麦克风
     println!("🎤 选择物理麦克风（输入设备）:");
-    let physical_input_devices: Vec<&String> = input_devices.iter()
+    let physical_input_devices: Vec<&String> = input_devices
+        .iter()
         .filter(|s| !s.contains("CABLE"))
         .collect();
-    
+
     if physical_input_devices.is_empty() {
         println!("❌ 错误：未检测到物理麦克风设备！");
         std::process::exit(1);
     }
-    
+
     // 获取系统默认麦克风
     let default_mic = get_default_input_device();
     let default_mic_index = if let Some(ref name) = default_mic {
-        physical_input_devices.iter().position(|s| s.contains(name)).unwrap_or(0)
+        physical_input_devices
+            .iter()
+            .position(|s| s.contains(name))
+            .unwrap_or(0)
     } else {
         0
     };
-    
+
     let mic_items: Vec<&str> = physical_input_devices.iter().map(|s| s.as_str()).collect();
     let mic_index = Select::with_theme(&ColorfulTheme::default())
         .items(&mic_items)
@@ -154,23 +165,27 @@ fn interactive_config() -> Result<()> {
 
     // 选择物理扬声器
     println!("\n🔊 选择物理扬声器（输出设备）:");
-    let physical_output_devices: Vec<&String> = output_devices.iter()
+    let physical_output_devices: Vec<&String> = output_devices
+        .iter()
         .filter(|s| !s.contains("CABLE"))
         .collect();
-    
+
     if physical_output_devices.is_empty() {
         println!("❌ 错误：未检测到物理扬声器设备！");
         std::process::exit(1);
     }
-    
+
     // 获取系统默认扬声器
     let default_speaker = get_default_output_device();
     let default_speaker_index = if let Some(ref name) = default_speaker {
-        physical_output_devices.iter().position(|s| s.contains(name)).unwrap_or(0)
+        physical_output_devices
+            .iter()
+            .position(|s| s.contains(name))
+            .unwrap_or(0)
     } else {
         0
     };
-    
+
     let speaker_items: Vec<&str> = physical_output_devices.iter().map(|s| s.as_str()).collect();
     let speaker_index = Select::with_theme(&ColorfulTheme::default())
         .items(&speaker_items)
@@ -192,9 +207,10 @@ fn interactive_config() -> Result<()> {
         .default(0)
         .interact()?;
     let vbcable_input = vbcable_inputs[vbcable_a_index].clone();
-    
+
     // 找到对应的 Output 设备
-    let vbcable_a_output = vbcable_outputs.iter()
+    let vbcable_a_output = vbcable_outputs
+        .iter()
         .find(|s| {
             let input_name = vbcable_input.replace(" Input", "");
             let output_name = s.replace(" Output", "");
@@ -205,22 +221,26 @@ fn interactive_config() -> Result<()> {
     // 选择虚拟设备 B（用于输出流）- 从可用设备中移除已选择的
     println!("\n📻 选择虚拟设备 B（用于输出流 - 会议软件 → 你听到）:");
     println!("   这个设备将接收会议软件的输出声音");
-    
-    let available_vbcable_outputs: Vec<&&String> = vbcable_outputs.iter()
+
+    let available_vbcable_outputs: Vec<&&String> = vbcable_outputs
+        .iter()
         .filter(|s| *s != vbcable_a_output)
         .collect();
-    
+
     let vbcable_output = if available_vbcable_outputs.is_empty() {
         // 如果只有一个虚拟设备，使用同一个
         println!("   ℹ️  只有一个虚拟设备，将同时用于输入和输出");
-        vbcable_a_output.clone()
+        (*vbcable_a_output).clone()
     } else {
-        let items: Vec<&str> = available_vbcable_outputs.iter().map(|s| s.as_str()).collect();
+        let items: Vec<&str> = available_vbcable_outputs
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
         let index = Select::with_theme(&ColorfulTheme::default())
             .items(&items)
             .default(0)
             .interact()?;
-        available_vbcable_outputs[index].clone()
+        (*available_vbcable_outputs[index]).clone()
     };
 
     // 保存配置
@@ -276,10 +296,21 @@ buffer_size = 512    # 缓冲区大小 (帧)
 
     println!("\n✅ 配置已保存到 {}", "config.toml".green().bold());
     println!("\n📋 {} 会议软件设置:", "⚙️".yellow());
-    println!("  {} 输入设备（麦克风）: {}", "🎤".cyan(), 
-        vbcable_a_output.cyan().bold());
-    println!("  {} 输出设备（扬声器）: {}", "🔊".cyan(), vbcable_output.cyan().bold());
-    println!("\n现在运行 {} 或 {} 启动程序", "trans.exe run".green(), "trans.exe".green());
+    println!(
+        "  {} 输入设备（麦克风）: {}",
+        "🎤".cyan(),
+        vbcable_a_output.cyan().bold()
+    );
+    println!(
+        "  {} 输出设备（扬声器）: {}",
+        "🔊".cyan(),
+        vbcable_output.cyan().bold()
+    );
+    println!(
+        "\n现在运行 {} 或 {} 启动程序",
+        "trans.exe run".green(),
+        "trans.exe".green()
+    );
 
     Ok(())
 }
@@ -290,7 +321,7 @@ fn check_devices() -> Result<()> {
     println!("╔════════════════════════════════════════════════════════════════╗");
     println!("║  音频设备列表                                                   ║");
     println!("╚════════════════════════════════════════════════════════════════╝");
-    
+
     println!("\n📻 输入设备:");
     for device in &input_devices {
         if device.contains("CABLE") {
@@ -299,7 +330,7 @@ fn check_devices() -> Result<()> {
             println!("  [物理] {}", device);
         }
     }
-    
+
     println!("\n🔊 输出设备:");
     for device in &output_devices {
         if device.contains("CABLE") {
@@ -325,11 +356,13 @@ fn show_device_info() -> Result<()> {
         println!("\n  设备: {}", name);
         if let Ok(configs) = device.supported_input_configs() {
             for config in configs {
-                println!("    格式: {:?}, 采样率: {}-{} Hz, 通道数: {:?}", 
+                println!(
+                    "    格式: {:?}, 采样率: {}-{} Hz, 通道数: {:?}",
                     config.sample_format(),
                     config.min_sample_rate().0,
                     config.max_sample_rate().0,
-                    config.channels());
+                    config.channels()
+                );
             }
         }
     }
@@ -340,16 +373,94 @@ fn show_device_info() -> Result<()> {
         println!("\n  设备: {}", name);
         if let Ok(configs) = device.supported_output_configs() {
             for config in configs {
-                println!("    格式: {:?}, 采样率: {}-{} Hz, 通道数: {:?}", 
+                println!(
+                    "    格式: {:?}, 采样率: {}-{} Hz, 通道数: {:?}",
                     config.sample_format(),
                     config.min_sample_rate().0,
                     config.max_sample_rate().0,
-                    config.channels());
+                    config.channels()
+                );
             }
         }
     }
 
     Ok(())
+}
+
+fn run_audio_processing() -> Result<()> {
+    info!("启动全双工音频处理程序...");
+
+    // 创建处理器链
+    let mut input_processor = ProcessorChain::new();
+    input_processor.add_processor(Box::new(processor::PassThroughProcessor));
+
+    let mut output_processor = ProcessorChain::new();
+    output_processor.add_processor(Box::new(processor::PassThroughProcessor));
+
+    // 获取音频设备配置
+    let config = config::AudioConfig::load_or_default()?;
+
+    info!("配置:");
+    info!("╔════════════════════════════════════════════════════════════════╗");
+    info!("║ 输入流（你说话）                                                ║");
+    info!(
+        "║   物理麦克风: {} → 处理 → {}",
+        config.input_device_name, config.vbcable_input_name
+    );
+    info!(
+        "║   内部管道: {} → {}",
+        config.vbcable_input_name.replace(" Input", " Output"),
+        config.vbcable_input_name
+    );
+    info!(
+        "║   {} 会议软件输入设备选择: {}",
+        "⚡".yellow(),
+        config.vbcable_input_name.cyan().bold()
+    );
+    info!("╠════════════════════════════════════════════════════════════════╣");
+    info!("║ 输出流（对方说话）                                              ║");
+    info!(
+        "║   {} 会议软件输出设备选择: {}",
+        "⚡".yellow(),
+        config.vbcable_output_name.cyan().bold()
+    );
+    info!(
+        "║   {} → 处理 → 物理扬声器: {}",
+        config.vbcable_output_name, config.output_device_name
+    );
+    info!("╠════════════════════════════════════════════════════════════════╣");
+    info!("║ 音频参数                                                       ║");
+    info!("║   采样率: {} Hz", config.sample_rate);
+    info!("║   缓冲区大小: {} 帧", config.buffer_size);
+    info!("╚════════════════════════════════════════════════════════════════╝");
+
+    // 启动输入流: 物理麦克风 -> 处理器 -> CABLE-A Input
+    // 音频通过内部管道传到 CABLE-A Output，视频会议软件从 CABLE-A Output 读取
+    let _input_stream = AudioStream::create_duplex_stream(
+        &config.input_device_name,
+        &config.vbcable_input_name,
+        config.sample_rate,
+        config.buffer_size,
+        Arc::new(std::sync::Mutex::new(input_processor)),
+        true,
+    )?;
+
+    // 启动输出流: CABLE Output -> 处理器 -> 物理扬声器
+    // 视频会议软件输出到 CABLE Output，程序处理后传到物理扬声器
+    let _output_stream = AudioStream::create_duplex_stream(
+        &config.vbcable_output_name,
+        &config.output_device_name,
+        config.sample_rate,
+        config.buffer_size,
+        Arc::new(std::sync::Mutex::new(output_processor)),
+        false,
+    )?;
+
+    // 运行音频流（保持程序运行）
+    info!("音频流已启动，按 Ctrl+C 退出...");
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
 }
 
 fn main() -> Result<()> {
@@ -392,63 +503,8 @@ fn main() -> Result<()> {
                 println!("{} 配置完成！正在启动程序...", "✅".green());
                 println!();
             }
+            run_audio_processing()?;
         }
-    }
-
-    info!("启动全双工音频处理程序...");
-
-    // 创建处理器链
-    let mut input_processor = ProcessorChain::new();
-    input_processor.add_processor(Box::new(processor::PassThroughProcessor));
-
-    let mut output_processor = ProcessorChain::new();
-    output_processor.add_processor(Box::new(processor::PassThroughProcessor));
-
-    // 获取音频设备配置
-    let config = config::AudioConfig::load_or_default()?;
-
-    info!("配置:");
-    info!("╔════════════════════════════════════════════════════════════════╗");
-    info!("║ 输入流（你说话）                                                ║");
-    info!("║   物理麦克风: {} → 处理 → {}", config.input_device_name, config.vbcable_input_name);
-    info!("║   内部管道: {} → {}", config.vbcable_input_name.replace(" Input", " Output"), config.vbcable_input_name);
-    info!("║   {} 会议软件输入设备选择: {}", "⚡".yellow(), config.vbcable_input_name.cyan().bold());
-    info!("╠════════════════════════════════════════════════════════════════╣");
-    info!("║ 输出流（对方说话）                                              ║");
-    info!("║   {} 会议软件输出设备选择: {}", "⚡".yellow(), config.vbcable_output_name.cyan().bold());
-    info!("║   {} → 处理 → 物理扬声器: {}", config.vbcable_output_name, config.output_device_name);
-    info!("╠════════════════════════════════════════════════════════════════╣");
-    info!("║ 音频参数                                                       ║");
-    info!("║   采样率: {} Hz", config.sample_rate);
-    info!("║   缓冲区大小: {} 帧", config.buffer_size);
-    info!("╚════════════════════════════════════════════════════════════════╝");
-
-    // 启动输入流: 物理麦克风 -> 处理器 -> CABLE-A Input
-    // 音频通过内部管道传到 CABLE-A Output，视频会议软件从 CABLE-A Output 读取
-    let _input_stream = AudioStream::create_duplex_stream(
-        &config.input_device_name,
-        &config.vbcable_input_name,
-        config.sample_rate,
-        config.buffer_size,
-        Arc::new(std::sync::Mutex::new(input_processor)),
-        true,
-    )?;
-
-    // 启动输出流: CABLE Output -> 处理器 -> 物理扬声器
-    // 视频会议软件输出到 CABLE Output，程序处理后传到物理扬声器
-    let _output_stream = AudioStream::create_duplex_stream(
-        &config.vbcable_output_name,
-        &config.output_device_name,
-        config.sample_rate,
-        config.buffer_size,
-        Arc::new(std::sync::Mutex::new(output_processor)),
-        false,
-    )?;
-
-    // 运行音频流（保持程序运行）
-    info!("音频流已启动，按 Ctrl+C 退出...");
-    loop {
-        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
     Ok(())

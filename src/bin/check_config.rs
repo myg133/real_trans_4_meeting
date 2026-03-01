@@ -18,7 +18,7 @@ fn main() -> Result<()> {
     // 查找 VB-Cable 设备
     println!("📻 虚拟音频设备 (VB-Cable):");
     println!("════════════════════════════════════════════════════════════════");
-    
+
     let mut cable_a_found = false;
     let mut cable_found = false;
 
@@ -93,8 +93,16 @@ fn main() -> Result<()> {
     println!("  vbcable_output_name = {}", "\"CABLE Output\"".cyan());
     println!();
     println!("在 {} 中:", "会议软件（OBS、Zoom、Teams 等）".yellow());
-    println!("  {} 输入设备（麦克风）: {}", "🎤".cyan(), "CABLE-A Output (VB-Audio Cable A)".cyan().bold());
-    println!("  {} 输出设备（扬声器）: {}", "🔊".cyan(), "CABLE Output (VB-Audio Virtual Cable)".cyan().bold());
+    println!(
+        "  {} 输入设备（麦克风）: {}",
+        "🎤".cyan(),
+        "CABLE-A Output (VB-Audio Cable A)".cyan().bold()
+    );
+    println!(
+        "  {} 输出设备（扬声器）: {}",
+        "🔊".cyan(),
+        "CABLE Output (VB-Audio Virtual Cable)".cyan().bold()
+    );
 
     Ok(())
 }
